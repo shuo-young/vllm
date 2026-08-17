@@ -319,5 +319,49 @@ class TestGeneration:
             assert 0.0 <= item_result.score <= 1.0
 
 
+class TestItemsBound:
+    """Tests for the items list length bound (DoS mitigation)."""
+
+    def test_items_within_limit_accepted(self):
+        """Items list within the configured limit is accepted."""
+        request = GenerativeScoringRequest(
+            model=MODEL_NAME,
+            query="query",
+            items=["item"] * 10,
+            label_token_ids=[1, 2],
+        )
+        assert len(request.items) == 10
+
+    def test_items_exceeding_limit_rejected(self, monkeypatch):
+        """Items list exceeding the configured limit is rejected."""
+        monkeypatch.setattr(
+            "vllm.entrypoints.generate.generative_scoring.serving.envs."
+            "VLLM_MAX_GENERATIVE_SCORING_ITEMS",
+            5,
+        )
+        with pytest.raises(Exception, match="exceeds the maximum"):
+            GenerativeScoringRequest(
+                model=MODEL_NAME,
+                query="query",
+                items=["item"] * 6,
+                label_token_ids=[1, 2],
+            )
+
+    def test_items_at_boundary_accepted(self, monkeypatch):
+        """Items list exactly at the limit is accepted."""
+        monkeypatch.setattr(
+            "vllm.entrypoints.generate.generative_scoring.serving.envs."
+            "VLLM_MAX_GENERATIVE_SCORING_ITEMS",
+            5,
+        )
+        request = GenerativeScoringRequest(
+            model=MODEL_NAME,
+            query="query",
+            items=["item"] * 5,
+            label_token_ids=[1, 2],
+        )
+        assert len(request.items) == 5
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

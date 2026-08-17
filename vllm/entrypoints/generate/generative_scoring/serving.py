@@ -15,8 +15,9 @@ from collections.abc import AsyncGenerator, Mapping
 from typing import Literal
 
 from fastapi import Request
-from pydantic import Field
+from pydantic import Field, model_validator
 
+from vllm import envs
 from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.openai.engine.protocol import (
     ErrorResponse,
@@ -26,6 +27,7 @@ from vllm.entrypoints.openai.engine.protocol import (
 from vllm.entrypoints.openai.models.serving import OpenAIServingModels
 from vllm.entrypoints.serve.engine.serving import BaseServing
 from vllm.entrypoints.serve.utils.request_logger import RequestLogger
+from vllm.exceptions import VLLMValidationError
 from vllm.inputs import EngineInput, tokens_input
 from vllm.logger import init_logger
 from vllm.outputs import RequestOutput
@@ -101,6 +103,23 @@ class GenerativeScoringRequest(OpenAIBaseModel):
         default_factory=random_uuid,
         description="The request_id related to this request.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_items_length(cls, data):
+        if not isinstance(data, dict):
+            return data
+        max_items = envs.VLLM_MAX_GENERATIVE_SCORING_ITEMS
+        items = data.get("items")
+        if isinstance(items, list) and len(items) > max_items:
+            raise VLLMValidationError(
+                f"items list length {len(items)} exceeds the maximum "
+                f"allowed count of {max_items}. To increase this "
+                "limit, set the VLLM_MAX_GENERATIVE_SCORING_ITEMS "
+                "environment variable.",
+                parameter="items",
+            )
+        return data
 
 
 class GenerativeScoringItemResult(OpenAIBaseModel):

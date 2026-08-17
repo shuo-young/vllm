@@ -334,11 +334,12 @@ class TestItemsBound:
 
     def test_items_exceeding_limit_rejected(self, monkeypatch):
         """Items list exceeding the configured limit is rejected."""
-        monkeypatch.setattr(
-            "vllm.entrypoints.generate.generative_scoring.serving.envs."
-            "VLLM_MAX_GENERATIVE_SCORING_ITEMS",
-            5,
-        )
+        from vllm import envs
+
+        monkeypatch.setenv("VLLM_MAX_GENERATIVE_SCORING_ITEMS", "5")
+        if hasattr(envs.__getattr__, "cache_clear"):
+            envs.__getattr__.cache_clear()
+
         with pytest.raises(Exception, match="exceeds the maximum"):
             GenerativeScoringRequest(
                 model=MODEL_NAME,
@@ -349,11 +350,12 @@ class TestItemsBound:
 
     def test_items_at_boundary_accepted(self, monkeypatch):
         """Items list exactly at the limit is accepted."""
-        monkeypatch.setattr(
-            "vllm.entrypoints.generate.generative_scoring.serving.envs."
-            "VLLM_MAX_GENERATIVE_SCORING_ITEMS",
-            5,
-        )
+        from vllm import envs
+
+        monkeypatch.setenv("VLLM_MAX_GENERATIVE_SCORING_ITEMS", "5")
+        if hasattr(envs.__getattr__, "cache_clear"):
+            envs.__getattr__.cache_clear()
+
         request = GenerativeScoringRequest(
             model=MODEL_NAME,
             query="query",
